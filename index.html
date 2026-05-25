@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Squirrel Slots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#080c14;
+  --deep:#0d1220;
+  --panel:#111827;
+  --border:#1e2d47;
+  --gold:#f5c842;
+  --gold2:#e8a020;
+  --amber:#ff8c00;
+  --green:#22c55e;
+  --red:#ef4444;
+  --cyan:#22d3ee;
+  --txt:#e2e8f0;
+  --muted:#64748b;
+  --pixel: 'Press Start 2P', monospace;
+}
+
+html,body{
+  min-height:100vh;
+  background:var(--bg);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  font-family:var(--pixel);
+  color:var(--txt);
+  padding:12px;
+}
+
+/* scanline overlay */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,transparent 2px,
+    rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px
+  );
+  pointer-events:none;
+  z-index:1000;
+}
+
+/* ── MACHINE ─────────────────────────────── */
+.machine{
+  width:min(480px,100%);
+  background:var(--deep);
+  border:3px solid var(--border);
+  border-radius:12px;
+  box-shadow:
+    0 0 0 1px rgba(245,200,66,.12),
+    0 0 40px rgba(245,200,66,.08),
+    0 30px 80px rgba(0,0,0,.8);
+  overflow:hidden;
+}
+
+/* ── MARQUEE ─────────────────────────────── */
+.marquee{
+  background:#000;
+  border-bottom:2px solid var(--border);
+  padding:14px 16px 10px;
+  text-align:center;
+  position:relative;
+}
+.marquee-lights{
+  display:flex;gap:0;justify-content:center;margin-bottom:10px;
+}
+.ml{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--gold);
+  box-shadow:0 0 6px var(--gold);
+  margin:0 6px;
+  animation:ml-blink 1s infinite;
+}
+.ml:nth-child(odd){animation-delay:.5s}
+@keyframes ml-blink{
+  0%,100%{opacity:1;box-shadow:0 0 8px var(--gold);}
+  50%{opacity:.2;box-shadow:none;}
+}
+.marquee-title{
+  font-size:clamp(8px,3.2vw,13px);
+  color:var(--gold);
+  letter-spacing:3px;
+  text-shadow:0 0 12px var(--gold),0 0 28px var(--gold2);
+  animation:title-pulse 2s ease-in-out infinite;
+}
+@keyframes title-pulse{
+  0%,100%{text-shadow:0 0 12px var(--gold),0 0 28px var(--gold2);}
+  50%{text-shadow:0 0 4px var(--gold);}
+}
+
+/* ── BODY ────────────────────────────────── */
+.body{padding:16px}
+
+/* ── SCREEN ──────────────────────────────── */
+.screen{
+  background:#000;
+  border:2px solid #1a2535;
+  border-radius:8px;
+  padding:12px;
+  margin-bottom:14px;
+  position:relative;
+  box-shadow:inset 0 0 40px rgba(0,0,0,.9);
+}
+
+/* stats */
+.stats{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;
+  margin-bottom:12px;
+}
+.stat{
+  background:#050810;
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:8px 6px;
+  text-align:center;
+}
+.stat-label{
+  display:block;
+  font-size:clamp(6px,1.8vw,8px);
+  color:var(--muted);
+  margin-bottom:5px;
+  letter-spacing:1px;
+}
+.stat-value{
+  display:block;
+  font-size:clamp(9px,2.5vw,12px);
+  color:var(--gold);
+  text-shadow:0 0 8px var(--gold2);
+}
+.stat-value.c-coins{color:var(--cyan);text-shadow:0 0 8px rgba(34,211,238,.5);}
+.stat-value.c-win{color:var(--green);text-shadow:0 0 8px rgba(34,197,94,.5);}
+
+/* message */
+.msg{
+  font-size:clamp(7px,2vw,9px);
+  text-align:center;
+  height:22px;
+  line-height:22px;
+  margin-bottom:10px;
+  letter-spacing:2px;
+  color:var(--muted);
+  transition:color .2s;
+}
+.msg.win{color:var(--gold);text-shadow:0 0 10px var(--gold2);animation:msg-pop .4s ease;}
+.msg.jackpot{animation:rainbow .4s infinite;}
+.msg.lose{color:var(--red);}
+@keyframes msg-pop{0%{transform:scale(.85)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes rainbow{
+  0%{color:var(--gold)}33%{color:var(--green)}66%{color:var(--cyan)}100%{color:var(--gold)}
+}
+
+/* ── REELS ───────────────────────────────── */
+.reels-wrap{
+  display:flex;gap:6px;
+  background:#020408;
+  border:2px solid #0e1a2b;
+  border-radius:6px;
+  padding:8px;
+  position:relative;
+}
+
+.payline{
+  position:absolute;
+  top:50%;left:0;right:0;
+  height:2px;
+  background:rgba(245,200,66,.4);
+  transform:translateY(-50%);
+  pointer-events:none;
+  z-index:5;
+  transition:opacity .3s;
+}
+.payline.flash{
+  animation:payline-flash .25s infinite;
+}
+@keyframes payline-flash{
+  0%,100%{background:var(--gold);box-shadow:0 0 12px var(--gold);}
+  50%{background:rgba(245,200,66,.1);box-shadow:none;}
+}
+
+.reel{
+  flex:1;
+  height:210px;
+  overflow:hidden;
+  border:1px solid #0e1a2b;
+  border-radius:4px;
+  background:#010306;
+  position:relative;
+}
+
+.reel-inner{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  will-change:transform;
+}
+
+.sym{
+  width:100%;
+  height:70px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:clamp(28px,7vw,38px);
+  flex-shrink:0;
+  border-bottom:1px solid #080e18;
+  transition:filter .1s;
+}
+
+.sym.winner{
+  animation:sym-win .5s ease-out forwards;
+}
+@keyframes sym-win{
+  0%{transform:scale(1);filter:none;}
+  40%{transform:scale(1.3);filter:drop-shadow(0 0 8px gold);}
+  100%{transform:scale(1.15);filter:drop-shadow(0 0 5px gold);}
+}
+
+/* ── PAYTABLE ────────────────────────────── */
+.paytable{
+  background:#050810;
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:10px 12px;
+  margin-bottom:14px;
+  font-size:clamp(6px,1.8vw,8px);
+}
+.pt-title{
+  color:var(--muted);
+  letter-spacing:2px;
+  margin-bottom:8px;
+  font-size:clamp(5px,1.5vw,7px);
+}
+.pt-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:4px 0;
+  border-bottom:1px solid #0e1a2b;
+}
+.pt-row:last-child{border-bottom:none;}
+.pt-sym{font-size:clamp(14px,3.5vw,18px);margin-right:6px;}
+.pt-label{color:var(--muted);flex:1;}
+.pt-pay{color:var(--gold);}
+.pt-pay.jackpot-label{color:var(--amber);text-shadow:0 0 8px var(--amber);}
+
+/* ── CONTROLS ────────────────────────────── */
+.controls{display:flex;gap:10px;align-items:stretch;}
+
+/* bet selector */
+.bet-section{
+  display:flex;flex-direction:column;gap:6px;
+  min-width:90px;
+}
+.bet-label-text{
+  font-size:clamp(5px,1.5vw,7px);
+  color:var(--muted);
+  letter-spacing:1px;
+  text-align:center;
+}
+.bet-chips{
+  display:flex;flex-wrap:wrap;gap:4px;justify-content:center;
+}
+.chip{
+  padding:5px 7px;
+  border:1px solid var(--border);
+  border-radius:4px;
+  background:#050810;
+  color:var(--muted);
+  font-family:var(--pixel);
+  font-size:clamp(5px,1.5vw,7px);
+  cursor:pointer;
+  transition:all .15s;
+  letter-spacing:.5px;
+}
+.chip:hover{border-color:var(--gold2);color:var(--gold2);}
+.chip.active{
+  border-color:var(--gold);
+  background:rgba(245,200,66,.08);
+  color:var(--gold);
+  box-shadow:0 0 8px rgba(245,200,66,.2);
+}
+.chip:disabled,.chip[disabled]{opacity:.4;cursor:not-allowed;}
+
+/* spin button */
+.spin-btn{
+  flex:1;
+  background:linear-gradient(180deg,#b84500 0%,#6b2700 100%);
+  border:none;
+  border-bottom:5px solid #3a1500;
+  border-radius:8px;
+  color:#fff;
+  font-family:var(--pixel);
+  font-size:clamp(8px,2.2vw,11px);
+  cursor:pointer;
+  letter-spacing:2px;
+  padding:14px 8px;
+  text-shadow:0 2px 4px #000;
+  transition:transform .08s,border-bottom-width .08s,box-shadow .15s;
+  box-shadow:0 0 20px rgba(200,80,0,.3);
+  position:relative;overflow:hidden;
+}
+.spin-btn::before{
+  content:'';
+  position:absolute;top:0;left:-80%;
+  width:50%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);
+  animation:shim 3s infinite;
+}
+@keyframes shim{to{left:180%}}
+.spin-btn:hover:not(:disabled){box-shadow:0 0 32px rgba(230,100,0,.55);}
+.spin-btn:active:not(:disabled){transform:translateY(3px);border-bottom-width:2px;}
+.spin-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+/* ── JACKPOT OVERLAY ─────────────────────── */
+.overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.9);
+  z-index:200;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:18px;
+}
+.overlay.show{display:flex;}
+.ov-title{
+  font-size:clamp(14px,5vw,22px);
+  color:var(--gold);
+  text-align:center;
+  animation:rainbow .4s infinite;
+  line-height:1.6;
+}
+.ov-sub{
+  font-size:clamp(9px,3vw,13px);
+  color:var(--green);
+  text-shadow:0 0 12px rgba(34,197,94,.6);
+}
+.ov-btn{
+  margin-top:6px;
+  background:transparent;
+  border:2px solid var(--gold);
+  color:var(--gold);
+  font-family:var(--pixel);
+  font-size:clamp(7px,2vw,9px);
+  padding:10px 20px;
+  cursor:pointer;
+  border-radius:4px;
+  letter-spacing:2px;
+  animation:title-pulse 1s infinite;
+}
+
+.confetti{
+  position:fixed;
+  width:7px;height:7px;
+  border-radius:2px;
+  pointer-events:none;
+  z-index:210;
+  animation:cffall linear forwards;
+}
+@keyframes cffall{
+  0%{transform:translateY(-16px) rotate(0);opacity:1;}
+  100%{transform:translateY(110vh) rotate(800deg);opacity:0;}
+}
+
+/* ── HISTORY ─────────────────────────────── */
+.history{
+  display:flex;gap:3px;margin-top:8px;flex-wrap:wrap;justify-content:center;
+}
+.h-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--border);
+  transition:background .3s;
+}
+.h-dot.hw{background:var(--gold);}
+.h-dot.hj{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+.h-dot.hb{background:var(--cyan);opacity:.5;}
+.h-dot.hl{background:#1e2d47;}
+
+@media(max-width:360px){
+  .sym{height:60px;font-size:26px;}
+  .reel{height:180px;}
+}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="ov-title" id="ov-title">🐿️ JACKPOT! 🐿️</div>
+  <div class="ov-sub" id="ov-sub">+500 COINS</div>
+  <button class="ov-btn" onclick="closeOverlay()">▶ CONTINUE</button>
+</div>
+
+<div class="machine">
+
+  <!-- Marquee -->
+  <div class="marquee">
+    <div class="marquee-lights">
+      <div class="ml"></div><div class="ml"></div><div class="ml"></div>
+      <div class="ml"></div><div class="ml"></div><div class="ml"></div>
+      <div class="ml"></div><div class="ml"></div><div class="ml"></div>
+    </div>
+    <div class="marquee-title">⋆ SQUIRREL SLOTS ⋆</div>
+  </div>
+
+  <div class="body">
+
+    <!-- Screen -->
+    <div class="screen">
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">COINS</span>
+          <span class="stat-value c-coins" id="coins">100</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">BET</span>
+          <span class="stat-value" id="bet-display">5</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">LAST WIN</span>
+          <span class="stat-value c-win" id="last-win">—</span>
+        </div>
+      </div>
+
+      <div class="msg" id="msg">PRESS SPIN TO PLAY</div>
+
+      <div class="reels-wrap">
+        <div class="payline" id="payline"></div>
+        <div class="reel"><div class="reel-inner" id="r0"></div></div>
+        <div class="reel"><div class="reel-inner" id="r1"></div></div>
+        <div class="reel"><div class="reel-inner" id="r2"></div></div>
+      </div>
+
+      <div class="history" id="history"></div>
+    </div>
+
+    <!-- Paytable -->
+    <div class="paytable">
+      <div class="pt-title">PAYTABLE — CENTER LINE</div>
+      <div class="pt-row">
+        <span class="pt-sym">🐿️🐿️🐿️</span>
+        <span class="pt-label">3 SQUIRRELS</span>
+        <span class="pt-pay jackpot-label">×100 JACKPOT</span>
+      </div>
+      <div class="pt-row">
+        <span class="pt-sym">🐰🐰🐰</span>
+        <span class="pt-label">3 RABBITS</span>
+        <span class="pt-pay">×10</span>
+      </div>
+      <div class="pt-row">
+        <span class="pt-sym">🦔🦔🦔</span>
+        <span class="pt-label">3 HEDGEHOGS</span>
+        <span class="pt-pay">×5</span>
+      </div>
+      <div class="pt-row">
+        <span class="pt-sym">🐭🐭🐭</span>
+        <span class="pt-label">3 MICE</span>
+        <span class="pt-pay">×3</span>
+      </div>
+      <div class="pt-row">
+        <span class="pt-sym">🐿️</span>
+        <span class="pt-label">ANY 1 SQUIRREL</span>
+        <span class="pt-pay">×1 BACK</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="bet-section">
+        <div class="bet-label-text">SELECT BET</div>
+        <div class="bet-chips" id="chips"></div>
+      </div>
+      <button class="spin-btn" id="spin-btn">▶ SPIN</button>
+    </div>
+
+  </div><!-- /body -->
+</div><!-- /machine -->
+
+<script>
+// ── REEL SYMBOL POOL ─────────────────────────────────────
+// Each reel is spun independently. Symbols and their per-reel weights.
+// Weights are tuned so that:
+//   3×squirrel  prob = (w_sq/T)^3  ≈ 0.0025  (pays ×100, EV contrib 0.25)
+//   3×rabbit    prob = (w_rb/T)^3  ≈ 0.0125  (pays ×10,  EV contrib 0.125) *adjusted for ×10
+//   3×hedgehog  prob = (w_hh/T)^3  ≈ 0.050   (pays ×5,   EV contrib 0.25)
+//   3×mouse     prob = (w_mo/T)^3  ≈ 0.0833  (pays ×3,   EV contrib 0.25)
+//   any squirrel (≥1 on line) handled in evaluation, not reel weights
+//
+// Per-reel probabilities (cube-root of 3-match target):
+//   sq:  cbrt(0.0025)  = 0.1357  → weight 136
+//   rb:  cbrt(0.0125)  = 0.2321  → weight 232   (×10 not ×20: EV=0.125)
+//   hh:  cbrt(0.050)   = 0.3684  → weight 368
+//   mo:  cbrt(0.0833)  = 0.4368  → weight 437
+//   filler fills rest  → weight = 1000 - 136-232-368-437 = -173 → can't work directly
+//
+// Solution: use a virtual reel of 1000 stops with the paying symbols,
+// but generate each reel symbol independently from a weighted pool.
+// Since sq+rb+hh+mo already sum > 1000 we normalise, accept EV < 1
+// for 3-match prizes, and compensate with the 1-squirrel refund rule.
+//
+// Simpler and correct: define pool of 100 stops per reel:
+//   sq=5, rb=10, hh=18, mo=24, filler=43  (sum=100)
+// 3-match EVs: (5/100)^3*100 + (10/100)^3*10 + (18/100)^3*5 + (24/100)^3*3
+//            = 0.125 + 0.1 + 0.1458 + 0.1244 = 0.495
+// Plus 1-squirrel refund EV:
+//   P(≥1 sq, not 3sq) = 1 - (95/100)^3 - (5/100)^3 = 1 - 0.857 - 0.000125 = 0.1428
+//   EV contrib = 0.1428 * 1 = 0.1428
+// Total EV ≈ 0.638 — acceptable for a fun free game, generous enough.
+//
+// These weights give visible mixed combos on every spin.
+
+const POOL = [
+  { id:'squirrel', e:'🐿️', w:5  },
+  { id:'rabbit',   e:'🐰', w:10 },
+  { id:'hedgehog', e:'🦔', w:18 },
+  { id:'mouse',    e:'🐭', w:24 },
+  { id:'f1',       e:'🍂', w:11 },
+  { id:'f2',       e:'🌰', w:11 },
+  { id:'f3',       e:'🍁', w:11 },
+  { id:'f4',       e:'🪺', w:10 },
+];
+// Build weighted array
+const WHEEL = [];
+POOL.forEach(s=>{ for(let i=0;i<s.w;i++) WHEEL.push(s); });
+
+function randSym(){ return WHEEL[Math.floor(Math.random()*WHEEL.length)]; }
+
+const FILLERS = ['🍂','🌰','🍁','🪺','🌿'];
+function randFiller(){ return FILLERS[Math.floor(Math.random()*FILLERS.length)]; }
+
+// ── EVALUATE 3 REEL RESULTS ──────────────────────────────
+// Returns { mult, label, type } or null for no win
+function evaluate(r0, r1, r2){
+  // 3-of-a-kind (paying animals only)
+  if(r0.id === r1.id && r1.id === r2.id){
+    if(r0.id==='squirrel') return { mult:100, label:'🐿️ JACKPOT! 🐿️',    type:'jackpot' };
+    if(r0.id==='rabbit')   return { mult:10,  label:'LUCKY RABBITS! ×10', type:'win' };
+    if(r0.id==='hedgehog') return { mult:5,   label:'HEDGEHOGS! ×5',      type:'win' };
+    if(r0.id==='mouse')    return { mult:3,   label:'MICE! ×3',           type:'win' };
+  }
+  // Any single squirrel = money back (×1) — but NOT if already 3-squirrel jackpot
+  const squirrelCount = [r0,r1,r2].filter(s=>s.id==='squirrel').length;
+  if(squirrelCount >= 1){
+    return { mult:1, label:'SQUIRREL! MONEY BACK', type:'refund' };
+  }
+  return null;
+}
+
+// ── STATE ─────────────────────────────────────────────────
+let coins = 100;
+let bet = 5;
+let spinning = false;
+const BET_OPTIONS = [1,2,5,10,25,50];
+
+// ── DOM ───────────────────────────────────────────────────
+const coinsEl   = document.getElementById('coins');
+const betEl     = document.getElementById('bet-display');
+const lastWinEl = document.getElementById('last-win');
+const msgEl     = document.getElementById('msg');
+const spinBtn   = document.getElementById('spin-btn');
+const paylineEl = document.getElementById('payline');
+const chipsEl   = document.getElementById('chips');
+const histEl    = document.getElementById('history');
+const strips    = [document.getElementById('r0'),document.getElementById('r1'),document.getElementById('r2')];
+
+// ── BET CHIPS ─────────────────────────────────────────────
+BET_OPTIONS.forEach(b=>{
+  const btn = document.createElement('button');
+  btn.className = 'chip' + (b===bet?' active':'');
+  btn.textContent = b;
+  btn.dataset.bet = b;
+  btn.addEventListener('click',()=>{ if(spinning) return; setBet(b); });
+  chipsEl.appendChild(btn);
+});
+function setBet(b){
+  bet = b; betEl.textContent = b;
+  chipsEl.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',+c.dataset.bet===b));
+}
+function updateCoins(){ coinsEl.textContent = coins; }
+
+// ── REEL ANIMATION ────────────────────────────────────────
+const SYM_H    = 70;
+const REEL_H   = 210;
+const STRIP_LEN = 28;
+const LAND_IDX  = 24; // symbol at this index lands in center on stop
+
+// Build strip: fill with random symbols, place `landSym` at LAND_IDX
+function buildStrip(el, landSym){
+  el.innerHTML = '';
+  for(let i = 0; i < STRIP_LEN; i++){
+    const div = document.createElement('div');
+    div.className = 'sym';
+    // surrounding symbols: any random paying or filler for visual interest
+    div.textContent = (i === LAND_IDX) ? landSym.e : randSym().e;
+    el.appendChild(div);
+  }
+}
+
+function yForIdx(idx){ return -(idx * SYM_H) + SYM_H; } // SYM_H = center row offset
+
+function resetReel(el){
+  buildStrip(el, randSym());
+  el.style.transition = 'none';
+  el.style.transform = `translateY(${yForIdx(1)}px)`;
+  el.getBoundingClientRect();
+}
+strips.forEach(s => resetReel(s));
+
+// ── SPIN ──────────────────────────────────────────────────
+spinBtn.addEventListener('click', doSpin);
+
+async function doSpin(){
+  if(spinning) return;
+  if(coins < bet){ setMsg('NOT ENOUGH COINS','lose'); return; }
+
+  spinning = true;
+  spinBtn.disabled = true;
+  chipsEl.querySelectorAll('.chip').forEach(c=>c.setAttribute('disabled',''));
+  paylineEl.classList.remove('flash');
+  setMsg('SPINNING...','idle');
+  lastWinEl.textContent = '—';
+
+  coins -= bet;
+  updateCoins();
+
+  // Roll each reel independently
+  const reelResults = [randSym(), randSym(), randSym()];
+
+  // Build strips — each reel gets its own result symbol at LAND_IDX
+  strips.forEach((s, i) => {
+    buildStrip(s, reelResults[i]);
+    s.style.transition = 'none';
+    s.style.transform = `translateY(${yForIdx(1)}px)`;
+    s.getBoundingClientRect();
+  });
+
+  // Forward-only scroll, staggered stops
+  const DURATIONS = [2000, 2450, 2950];
+  const EASING    = 'cubic-bezier(0.25, 0.1, 0.05, 1.0)';
+  const finalY    = yForIdx(LAND_IDX);
+
+  strips.forEach((s, i) => {
+    setTimeout(() => {
+      s.style.transition = `transform ${DURATIONS[i]}ms ${EASING}`;
+      s.style.transform  = `translateY(${finalY}px)`;
+    }, i * 160);
+  });
+
+  await sleep(2 * 160 + DURATIONS[2] + 100);
+
+  onStop(reelResults);
+}
+
+function onStop(reelResults){
+  spinning = false;
+  spinBtn.disabled = false;
+  chipsEl.querySelectorAll('.chip').forEach(c=>c.removeAttribute('disabled'));
+
+  const result = evaluate(reelResults[0], reelResults[1], reelResults[2]);
+
+  if(result){
+    const payout = bet * result.mult;
+    coins += payout;
+    updateCoins();
+    lastWinEl.textContent = result.mult === 1 ? '±0' : '+' + payout;
+    paylineEl.classList.add('flash');
+
+    // Highlight winning symbols at LAND_IDX
+    strips.forEach((s, i) => {
+      // For 3-of-a-kind highlight all; for single squirrel only highlight squirrel reels
+      const shouldHighlight = (result.type !== 'refund') ||
+                              (reelResults[i].id === 'squirrel');
+      if(shouldHighlight){
+        const syms = s.querySelectorAll('.sym');
+        if(syms[LAND_IDX]) syms[LAND_IDX].classList.add('winner');
+      }
+    });
+
+    if(result.type === 'jackpot'){
+      setMsg(result.label, 'jackpot');
+      setTimeout(()=>showOverlay('🐿️ JACKPOT! 🐿️', `+${payout} COINS!`), 400);
+      confetti(80);
+    } else if(result.type === 'refund'){
+      setMsg(result.label, 'win');
+    } else {
+      setMsg(result.label, 'win');
+      if(result.mult >= 10) confetti(30);
+    }
+    addHistory(result.type === 'refund' ? 'hb' : 'hw');
+  } else {
+    setMsg('NO MATCH — TRY AGAIN', 'lose');
+    addHistory('hl');
+    if(coins <= 0){
+      setTimeout(()=>{ coins=100; updateCoins(); setMsg('RELOADED! +100 COINS','win'); }, 1600);
+    }
+  }
+}
+
+// ── HISTORY DOTS ──────────────────────────────────────────
+const HISTORY_MAX = 24;
+let histDots = [];
+function addHistory(cls){
+  histDots.push(cls);
+  if(histDots.length > HISTORY_MAX) histDots.shift();
+  histEl.innerHTML = histDots.map(c=>`<div class="h-dot ${c}"></div>`).join('');
+}
+
+// ── MSG ───────────────────────────────────────────────────
+function setMsg(txt, cls='idle'){
+  msgEl.textContent = txt;
+  msgEl.className = 'msg ' + cls;
+}
+
+// ── OVERLAY ───────────────────────────────────────────────
+function showOverlay(title, sub){
+  document.getElementById('ov-title').textContent = title;
+  document.getElementById('ov-sub').textContent = sub;
+  document.getElementById('overlay').classList.add('show');
+}
+function closeOverlay(){
+  document.getElementById('overlay').classList.remove('show');
+  document.querySelectorAll('.confetti').forEach(e=>e.remove());
+}
+
+// ── CONFETTI ──────────────────────────────────────────────
+function confetti(n){
+  const colors=['#f5c842','#ff8c00','#22c55e','#22d3ee','#ef4444','#a78bfa'];
+  for(let i=0;i<n;i++){
+    const el=document.createElement('div');
+    el.className='confetti';
+    el.style.cssText=`left:${Math.random()*100}vw;background:${colors[i%colors.length]};animation-duration:${1.2+Math.random()*2}s;animation-delay:${Math.random()*.8}s`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend',()=>el.remove());
+  }
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+</script>
+</body>
+</html>
